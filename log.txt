@@ -1,0 +1,21 @@
+emotion
+[tensor(0.8094), tensor(0.8525), tensor(0.8874)]
+average f 0.8497
+[0.8037383177194515, 0.8425925925535837, 0.8616071428186782]
+average p 0.8360
+[tensor(0.8152), tensor(0.8626), tensor(0.9147)]
+average r 0.8641
+cause
+[tensor(0.6879), tensor(0.7522), tensor(0.7310)]
+average f 0.7237
+[0.7224880382429432, 0.7264957264646796, 0.6592592592348422]
+average p 0.7027
+[tensor(0.6565), tensor(0.7798), tensor(0.8203)]
+average r 0.7522
+pair
+[tensor(0.6682), tensor(0.7306), tensor(0.7166)]
+average f 0.7051
+[0.7033492822629976, 0.7272727272396694, 0.7053571428256536]
+average p 0.7120
+[tensor(0.6364), tensor(0.7339), tensor(0.7281)]
+average r 0.6995

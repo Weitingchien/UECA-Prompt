@@ -6,8 +6,10 @@ from torch.utils.data import Dataset, DataLoader
 from transformers import BertTokenizer, BertForMaskedLM
 import time
 import numpy as np
-from utils import print_data_info
 from tqdm import tqdm
+
+from utils import print_data_info
+from training_logger import log_predictions
 
 """setting agrparse"""
 parser = argparse.ArgumentParser(description='Training')
@@ -161,7 +163,7 @@ class MyDataset(Dataset):
 
     def __getitem__(self, index):
         index = self.index[index]
-        feed_list = [self.x_bert[index], self.y_bert[index], self.label[index], self.mask_label[index],
+        feed_list = [self.doc_id[index], self.x_bert[index], self.y_bert[index], self.label[index], self.mask_label[index],
                      self.gt_emotion[index], self.gt_cause[index], self.gt_pair[index]]
         return feed_list
 
@@ -269,6 +271,7 @@ def run():
     print_time()
     bert_path = './bert-base-chinese'
     tokenizer = BertTokenizer.from_pretrained(bert_path)
+    output_log_file = "training_output_log.json"
 
     # train
     print_training_info()  # 输出训练的超参数信息
@@ -313,7 +316,7 @@ def run():
             with torch.no_grad():
                 progress_bar_eval = tqdm(testloader, desc=f"Fold {fold} Epoch {i+1} - Evaluating")
                 for _, data in enumerate(progress_bar_eval):
-                    x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
+                    doc_ids, x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
                     if use_gpu:
                         x_bert = x_bert.cuda()
                         y_bert = y_bert.cuda()
@@ -365,7 +368,7 @@ def run():
                 progress_bar = tqdm(trainloader, desc=f"Fold {fold} Epoch {i+1}/{opt.training_iter}")
                 for index, data in enumerate(progress_bar):
                     with torch.autograd.set_detect_anomaly(True):
-                        x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
+                        doc_ids, x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
                         # print_data_info(data, tokenizer) #印出樣本的詳細資訊
                         if use_gpu:
                             x_bert = x_bert.cuda()
@@ -374,6 +377,35 @@ def run():
                             mask_label = mask_label.cuda()
                         loss, logits = model(x_bert, mask_label)
                         logits = F.softmax(logits, dim=-1)
+                        
+                        
+                        # Log predictions for each sample in the batch
+                        batch_size_actual = x_bert.size(0) # Get current batch size
+                        for batch_idx in range(batch_size_actual):
+                            doc_id_single = doc_ids[batch_idx] # Get the specific doc_id from the batch
+                            
+                            x_bert_single = x_bert[batch_idx] 
+                            predicted_y_bert_single = logits[batch_idx].argmax(dim=-1) 
+                            
+                            label_single = label[batch_idx] 
+                            mask_label_single = mask_label[batch_idx] 
+                            
+                            gt_emotion_single = gt_emotion[batch_idx]
+                            gt_cause_single = gt_cause[batch_idx]
+                            gt_pair_single = gt_pair[batch_idx]
+
+                            log_predictions(
+                                doc_id=doc_id_single,
+                                x_bert_ids=x_bert_single.cpu(),
+                                predicted_y_bert_ids=predicted_y_bert_single.cpu(),
+                                label_ids=label_single.cpu(),
+                                mask_label_ids=mask_label_single.cpu(),
+                                gt_emotion=gt_emotion_single.cpu(),
+                                gt_cause=gt_cause_single.cpu(),
+                                gt_pair=gt_pair_single.cpu(),
+                                tokenizer=tokenizer, 
+                                output_filepath=output_log_file
+                            )
 
                         optimizer.zero_grad()
                         if use_gpu:
@@ -412,7 +444,7 @@ def run():
                 model.eval()
                 with torch.no_grad():
                     for _, data in enumerate(testloader):
-                        x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
+                        doc_ids, x_bert, y_bert, label, mask_label, gt_emotion, gt_cause, gt_pair = data
                         if use_gpu:
                             x_bert = x_bert.cuda()
                             y_bert = y_bert.cuda()
